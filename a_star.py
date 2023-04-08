@@ -1,5 +1,7 @@
 
-import collections
+
+from functools import total_ordering
+import heapq
 import math
 import matplotlib.pyplot
 import numpy
@@ -34,8 +36,44 @@ class coordClass:
     def y(self, val):
         self.vec[1] = val
 
+    def __eq__(self, other):
+        return numpy.array_equal(self.vec, other.vec) and self.angle == other.angle
 
-nodeClass = collections.namedtuple("nodeClass", ["coords", "parentNode", "g", "h", "f"])
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    def __hash__(self):
+        return hash((self.vec[0], self.vec[1], self.angle))
+
+
+@total_ordering
+class nodeClass:
+
+    def __init__(self, coords, parentNode, g, h, f):
+        self.coords = coords
+        self.parentNode = parentNode
+        self.g = g
+        self.h = h
+        self.f = f
+
+    def __str__(self):
+        return "(" + str(self.coords.x) + ", " + str(self.coords.y) + ", " + str(math.degrees(self.coords.angle)) + ") | g=" + str(self.g) + ", h=" + str(self.h)
+
+    def __eq__(self, other):
+        return self.coords.__eq__(other.coords)
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    def __lt__(self, other):
+        return self.f < other.f
+
+    def __gt__(self, other):
+        return self.f < other.f
+
+    def __hash__(self):
+        return hash((self.coords, self.parentNode, self.g, self.h, self.f))
+
 
 Direction = enum.Enum('Direction', ['LEFT', 'STRAIGHT', 'RIGHT'])
 
@@ -64,14 +102,6 @@ def calc_h(currentCoords, goalCoords):
     if currentCoords.y > 2.5 and currentCoords.x < 2.5: retval += 100000000
     if currentCoords.x**2 + (currentCoords.y - 2.5)**2 < 6.25: retval += 100000000
     return retval
-
-
-def coordsEqual(coords1, coords2):
-    return numpy.array_equal(coords1.vec, coords2.vec)
-
-
-def nodesEqual(node1, node2):
-    return coordsEqual(node1.coords, node2.coords)
 
 
 def rotateCoords(coords, angle): # angle > 0 -> counterclockwise
@@ -104,10 +134,6 @@ def propagateCoords(d, coords):
     return coordClass(coords.vec + addVec, newAngle)
 
 
-def nodeToStr(node):
-    return "(" + str(node.coords.x) + ", " + str(node.coords.y) + ", " + str(math.degrees(node.coords.angle)) + ") | g=" + str(node.g) + ", h=" + str(node.h)
-
-
 def buildPath(node, path = []):
     if node.parentNode is None:
         return list(reversed(path + [node]))
@@ -135,21 +161,20 @@ def addNodePathPlot(node1, node2):
 def run_a_star(start, end):
     startNode = nodeClass(start, None, 0, calc_h(start, end), calc_h(start, end))
     openList = [ startNode ]
-    closedList = []
+    closedList = set()
     i = 0
     while openList:
-        currentNode = min(openList, key=lambda x: x.f)
+        currentNode = heapq.heappop(openList)
         if i % 1 == 0:
             updatePlot(buildPath(currentNode))
-        if i % 50 == 0:
+        if i % 40 == 0:
             ax.clear()
-        openList.remove(currentNode)
-        closedList.append(currentNode)
+        closedList.add(currentNode)
         if dist(currentNode.coords, end) < 0.3 and abs(currentNode.coords.angle - math.pi) < 0.01:
             print("found it")
-            print(nodeToStr(currentNode))
+            print(str(currentNode))
             for n in buildPath(currentNode):
-                print("\t" + nodeToStr(n))
+                print("\t" + str(n))
         for d in list(Direction):
             if currentNode.g == 0 and d != Direction.LEFT:
                 continue
@@ -157,12 +182,15 @@ def run_a_star(start, end):
             g = currentNode.g + 1
             h = calc_h(newCoords, end)
             node = nodeClass(newCoords, currentNode, g, h, g + h)
-            if [ x for x in closedList if coordsEqual(x.coords, newCoords)]:
+            if node in closedList:
                 continue
-            filteredOpenList = [ x for x in openList if coordsEqual(x.coords, newCoords) and node.g > x.g ]
-            if filteredOpenList:
-                continue
-            openList.append(node)
+            cont = False
+            for olNode in openList:
+                if olNode == node and node.g > olNode.g:
+                    cont = True
+                    break
+            if cont: continue
+            heapq.heappush(openList, node)
         i += 1
 
 
