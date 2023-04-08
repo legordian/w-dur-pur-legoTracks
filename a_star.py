@@ -7,9 +7,7 @@ import numpy.linalg
 import enum
 
 
-#coordClass = collections.namedtuple("coordClass", ["x", "y", "angle"])
 class coordClass:
-
 
     def __init__(self, vec, angle):
         self.vec = vec
@@ -51,17 +49,11 @@ ax = fig.add_subplot(111)
 
 def dist(coords1, coords2):
     return numpy.linalg.norm(coords2.vec - coords1.vec)
-    #return math.sqrt(math.pow((coords1.x - coords2.x), 2) + math.pow((coords1.y - coords2.y), 2))
 
 
 def calc_h(currentCoords, goalCoords):
-    # return dist(currentCoords, goalCoords)
     diff = goalCoords.vec - currentCoords.vec
     return numpy.inner(diff, diff)
-
-
-# def f(node):
-#     return node.g + node.h
 
 
 def coordsEqual(coords1, coords2):
@@ -75,9 +67,6 @@ def nodesEqual(node1, node2):
 def rotateCoords(coords, angle): # angle > 0 -> counterclockwise
     rot = numpy.array([[numpy.cos(angle), -numpy.sin(angle)], [numpy.sin(angle), numpy.cos(angle)]])
     return numpy.dot(rot, coords.vec)
-    # newVec = numpy.dot(rot, coords.vec)
-    # return coordClass(newVec, None)
-    # return coordClass(coords.x * math.cos(angle) - coords.y * math.sin(angle), coords.x * math.sin(angle) + coords.y * math.cos(angle), None)
 
 
 def cleanAngle(angle):
@@ -86,11 +75,6 @@ def cleanAngle(angle):
         deg = numpy.mod(deg, 180 if deg < 0 else -180)
     if deg == -180.: deg = numpy.double(180)
     return deg / 180. * numpy.pi
-    # deg = round(math.degrees(angle), 3)
-    # if abs(deg) > 180:
-    #     deg = deg % (180 if deg < 0 else -180)
-    # if deg == -180: deg = 180
-    # return math.radians(deg)
 
 
 def propagateCoords(d, coords):
@@ -99,15 +83,12 @@ def propagateCoords(d, coords):
     if d == Direction.LEFT:
         addVec = rotateCoords(leftCurveVec, coords.angle)
         newAngle = cleanAngle(coords.angle + numpy.pi/8.)
-        # return coordClass(coords.vec + addVec, cleanAngle(coords.angle + numpy.pi/8.))
     elif d == Direction.STRAIGHT:
         addVec = numpy.array([numpy.cos(coords.angle), numpy.sin(coords.angle)])
         newAngle = coords.angle
-        # return coordClass(coords.x + numpy.cos(coords.angle), coords.y + numpy.sin(coords.angle), coords.angle)
     elif d == Direction.RIGHT:
         addVec = rotateCoords(rightCurveVec, coords.angle)
         newAngle = cleanAngle(coords.angle - numpy.pi/8.)
-        # return coordClass(coords.vec + addVec, cleanAngle(coords.angle - numpy.pi/8.))
     else:
         raise Exception("ups")
     return coordClass(coords.vec + addVec, newAngle)
