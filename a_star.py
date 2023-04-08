@@ -93,15 +93,19 @@ def dist(coords1, coords2):
 def calc_h(currentCoords, goalCoords):
     diff = goalCoords.vec - currentCoords.vec
     retval = numpy.inner(diff, diff)
-
     angleDiff = goalCoords.angle - currentCoords.angle
     if angleDiff > numpy.pi: angleDiff = 2 * numpy.pi - angleDiff
-    retval += numpy.power(angleDiff / (numpy.pi / 8.), 2) / numpy.power(0.8 + currentCoords.x, 4)
-    if currentCoords.y < -2.5 and currentCoords.x < 2.5: retval += 100000000
-    if currentCoords.x**2 + (currentCoords.y + 2.5)**2 < 6.25: retval += 100000000
-    if currentCoords.y > 2.5 and currentCoords.x < 2.5: retval += 100000000
-    if currentCoords.x**2 + (currentCoords.y - 2.5)**2 < 6.25: retval += 100000000
+    retval += numpy.power(angleDiff / (numpy.pi / 8.), 2) / (0.8 + currentCoords.x)
+
     return retval
+
+
+def forbidden(coords):
+    if coords.y < -2.5 and coords.x < 2.5: return True
+    if coords.x**2 + (coords.y + 2.5)**2 < 6.2: return True
+    if coords.y > 2.5 and coords.x < 2.5: return True
+    if coords.x**2 + (coords.y - 3.0)**2 < 6.2: return True
+    if coords.x < 0: return True
 
 
 def rotateCoords(coords, angle): # angle > 0 -> counterclockwise
@@ -178,9 +182,11 @@ def run_a_star(start, end):
         for d in list(Direction):
             if currentNode.g == 0 and d != Direction.LEFT:
                 continue
-            g = currentNode.g + 0.2
+            g = currentNode.g + 1.2
             if currentNode.g < g:
                 newCoords = propagateCoords(d, currentNode.coords)
+                if forbidden(newCoords):
+                    continue
                 h = calc_h(newCoords, end)
                 heapq.heappush(openList, nodeClass(newCoords, currentNode, g, h, g + h))
         i += 1
