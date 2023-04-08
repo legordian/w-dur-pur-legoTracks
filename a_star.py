@@ -45,6 +45,7 @@ rightCurveVec = coordClass.fromXYCoords(leftCurveVec.x, -leftCurveVec.y, None)
 matplotlib.pyplot.ion()
 fig = matplotlib.pyplot.figure()
 ax = fig.add_subplot(111)
+matplotlib.pyplot.gca().set_aspect('equal')
 
 
 def dist(coords1, coords2):
@@ -53,7 +54,16 @@ def dist(coords1, coords2):
 
 def calc_h(currentCoords, goalCoords):
     diff = goalCoords.vec - currentCoords.vec
-    return numpy.inner(diff, diff)
+    retval = numpy.inner(diff, diff)
+
+    angleDiff = goalCoords.angle - currentCoords.angle
+    if angleDiff > numpy.pi: angleDiff = 2 * numpy.pi - angleDiff
+    retval += numpy.power(angleDiff / (numpy.pi / 8.), 2) / numpy.power(0.8 + currentCoords.x, 4)
+    if currentCoords.y < -2.5 and currentCoords.x < 2.5: retval += 100000000
+    if currentCoords.x**2 + (currentCoords.y + 2.5)**2 < 6.25: retval += 100000000
+    if currentCoords.y > 2.5 and currentCoords.x < 2.5: retval += 100000000
+    if currentCoords.x**2 + (currentCoords.y - 2.5)**2 < 6.25: retval += 100000000
+    return retval
 
 
 def coordsEqual(coords1, coords2):
@@ -141,6 +151,8 @@ def run_a_star(start, end):
             for n in buildPath(currentNode):
                 print("\t" + nodeToStr(n))
         for d in list(Direction):
+            if currentNode.g == 0 and d != Direction.LEFT:
+                continue
             newCoords = propagateCoords(d, currentNode.coords)
             g = currentNode.g + 1
             h = calc_h(newCoords, end)
