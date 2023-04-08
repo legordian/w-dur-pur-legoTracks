@@ -90,13 +90,17 @@ def dist(coords1, coords2):
     return numpy.linalg.norm(coords2.vec - coords1.vec)
 
 
+def angleDiff(coords1, coords2):
+    angleDiff = coords2.angle - coords1.angle + numpy.pi
+    if angleDiff > numpy.pi: angleDiff = 2 * numpy.pi - angleDiff
+    return angleDiff
+
+
 def calc_h(currentCoords, goalCoords):
     diff = goalCoords.vec - currentCoords.vec
-    retval = numpy.inner(diff, diff)
-    angleDiff = goalCoords.angle - currentCoords.angle
-    if angleDiff > numpy.pi: angleDiff = 2 * numpy.pi - angleDiff
-    retval += numpy.power(angleDiff / (numpy.pi / 8.), 2) / (0.8 + currentCoords.x)
-
+    retval = numpy.inner(diff, diff) / 7.
+    angDiff = angleDiff(currentCoords, goalCoords)
+    retval += numpy.power(angDiff / (numpy.pi / 8.), 2) / numpy.power((0.3 * retval), 4)
     return retval
 
 
@@ -148,7 +152,7 @@ def updatePlot(path):
     if not path:
         return
     ax.plot([p.coords.x for p in path], [p.coords.y for p in path])
-    ax.set_xlim([0, 10])
+    ax.set_xlim([0, 30])
     ax.set_ylim([-7, 7])
     fig.canvas.draw()
     fig.canvas.flush_events()
@@ -164,37 +168,52 @@ def addNodePathPlot(node1, node2):
 
 def run_a_star(start, end):
     startNode = nodeClass(start, None, 0, calc_h(start, end), calc_h(start, end))
-    openList = [ startNode ]
-    closedList = set()
+    endNode = nodeClass(end, None, 0, calc_h(end, start), calc_h(end, start))
+    openList1 = [ startNode ]
+    openList2 = [ endNode ]
+    closedList1 = set()
+    closedList2 = set()
     i = 0
-    while openList:
-        currentNode = heapq.heappop(openList)
+    weight = 1
+    while openList1 and openList2:
+        currentNode1 = heapq.heappop(openList1)
+        currentNode2 = heapq.heappop(openList2)
         if i % 1 == 0:
-            updatePlot(buildPath(currentNode))
+            updatePlot(buildPath(currentNode1))
+            updatePlot(buildPath(currentNode2))
         if i % 40 == 0:
             ax.clear()
-        closedList.add(currentNode)
-        if dist(currentNode.coords, end) < 0.3 and abs(currentNode.coords.angle - math.pi) < 0.01:
+        closedList1.add(currentNode1)
+        closedList2.add(currentNode2)
+        if dist(currentNode1.coords, currentNode2.coords) < 0.1 and (angleDiff(currentNode1.coords, currentNode2.coords) - numpy.pi) < 0.01:
             print("found it")
-            print(str(currentNode))
-            for n in buildPath(currentNode):
+            print(str(currentNode1))
+            for n in buildPath(currentNode1):
+                print("\t" + str(n))
+            print("---")
+            for n in reversed(buildPath(currentNode2)):
                 print("\t" + str(n))
         for d in list(Direction):
-            if currentNode.g == 0 and d != Direction.LEFT:
-                continue
-            g = currentNode.g + 1.2
-            if currentNode.g < g:
-                newCoords = propagateCoords(d, currentNode.coords)
-                if forbidden(newCoords):
-                    continue
-                h = calc_h(newCoords, end)
-                heapq.heappush(openList, nodeClass(newCoords, currentNode, g, h, g + h))
+            # if currentNode1.g == 0 and d != Direction.LEFT:
+            #     continue
+            g = currentNode1.g + weight
+            if currentNode1.g < g:
+                newCoords = propagateCoords(d, currentNode1.coords)
+                if not forbidden(newCoords):
+                    h = calc_h(newCoords, currentNode2.coords)
+                    heapq.heappush(openList1, nodeClass(newCoords, currentNode1, g, h, g + h))
+            g = currentNode2.g + weight
+            if currentNode2.g < g:
+                newCoords = propagateCoords(d, currentNode2.coords)
+                if not forbidden(newCoords):
+                    h = calc_h(currentNode1.coords, newCoords)
+                    heapq.heappush(openList2, nodeClass(newCoords, currentNode2, g, h, g + h))
         i += 1
 
 
 def main():
     start = coordClass.fromXYCoords(0., 0.5, numpy.double(0.))
-    end = coordClass.fromXYCoords(0., 0., numpy.pi)
+    end = coordClass.fromXYCoords(0., 0., numpy.double(0.))
     run_a_star(start, end)
     input()
 
