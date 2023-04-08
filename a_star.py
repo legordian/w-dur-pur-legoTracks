@@ -23,6 +23,9 @@ def dist(coords1, coords2):
 
 
 def h(currentCoords, goalCoords):
+
+    return dist(currentCoords, goalCoords)
+
     retval = math.pow((goalCoords.x - currentCoords.x), 2) + math.pow((goalCoords.y - currentCoords.y), 2)
     angleDiff = goalCoords.angle - currentCoords.angle
     if angleDiff > math.pi: angleDiff = 2 * math.pi - angleDiff
@@ -77,6 +80,9 @@ def propagateCoords(d, coords):
         return coordClass(coords.x + math.cos(coords.angle), coords.y + math.sin(coords.angle), coords.angle)
     elif d == Direction.RIGHT:
         addVec = rotateCoords(rightCurveVec, coords.angle)
+        # print(f"({rightCurveVec.x}, {rightCurveVec.y})")
+        # print(math.degrees(coords.angle))
+        # print(f"({addVec.x}, {addVec.y})")
         return coordClass(coords.x + addVec.x, coords.y + addVec.y, cleanAngle(coords.angle - math.pi/8.))
     else:
         raise Exception("ups")
@@ -95,6 +101,11 @@ def buildPath(node, path = []):
 def updatePlot(path):
     if not path:
         return
+
+    # print("path:")
+    # for p in path:
+    #     print("\t" + nodeToStr(p))
+
     ax.plot([p.coords.x for p in path], [p.coords.y for p in path])
     ax.set_xlim([0, 10])
     ax.set_ylim([-7, 7])
@@ -117,8 +128,16 @@ def run_a_star(start, end):
     i = 0
     while openList:
         # print("iteration " + str(i))
-        # if i > 5: break
+        # if i > 20: break
+
+        # print("open list:")
+        # for p in openList:
+        #     print("\t" + nodeToStr(p))
+
         currentNode = min(openList, key=f)
+
+        # print("currentNode: " + nodeToStr(currentNode) + "\n")
+
         if i % 1 == 0:
             updatePlot(buildPath(currentNode))
         if i % 50 == 0:
@@ -131,14 +150,17 @@ def run_a_star(start, end):
         if dist(currentNode.coords, end) < 0.3 and abs(currentNode.coords.angle - math.pi) < 0.01:
         # if coordsEqual(currentNode.coords, end):
             print("found it")
+            break
             print(nodeToStr(currentNode))
             for n in buildPath(currentNode):
                 print("\t" + nodeToStr(n))
         for d in list(Direction):
+            # if d != Direction.RIGHT:
+            #     continue
             # if currentNode.g > 15 and d == Direction.LEFT:
             #     continue
-            if currentNode.g == 0 and d != Direction.LEFT:
-                continue
+            # if currentNode.g == 0 and d != Direction.LEFT:
+            #     continue
             newCoords = propagateCoords(d, currentNode.coords)
             node = nodeClass(newCoords, currentNode, currentNode.g + 1, h(newCoords, end))
             if [ x for x in closedList if coordsEqual(x.coords, newCoords)]:
@@ -156,9 +178,12 @@ def run_a_star(start, end):
 def main():
     start = coordClass(0., 0.5, 0.)
     end = coordClass(0., 0., math.pi)
+    # start = coordClass(0., 0., 0.)
+    # end = coordClass(0., -5., math.pi)
+    # end = coordClass(0., 0., math.pi)
     # end = coordClass(4., 0., math.pi)
     run_a_star(start, end)
-
+    input()
 
 if __name__ == "__main__":
     main()
