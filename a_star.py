@@ -10,8 +10,8 @@ nodeClass = collections.namedtuple("nodeClass", ["coords", "parentNode", "g", "h
 
 Direction = enum.Enum('Direction', ['LEFT', 'STRAIGHT', 'RIGHT'])
 
-rightCurveVec = coordClass(2.5 * math.sin(math.pi / 8.), 1 - math.cos(math.pi / 8.), None)
-leftCurveVec = coordClass(rightCurveVec.x, -rightCurveVec.y, None)
+leftCurveVec = coordClass(2.5 * math.sin(math.pi / 8.), 2.5 * (1 - math.cos(math.pi / 8.)), None)
+rightCurveVec = coordClass(leftCurveVec.x, -leftCurveVec.y, None)
 
 matplotlib.pyplot.ion()
 fig = matplotlib.pyplot.figure()
@@ -58,7 +58,7 @@ def nodesEqual(node1, node2):
 
 
 def rotateCoords(coords, angle): # angle > 0 -> counterclockwise
-    return coordClass(coords.x * math.cos(angle) - coords.y * math.sin(angle), coords.x * math.sin(angle) - coords.y * math.cos(angle), None)
+    return coordClass(coords.x * math.cos(angle) - coords.y * math.sin(angle), coords.x * math.sin(angle) + coords.y * math.cos(angle), None)
 
 
 def cleanAngle(angle):
