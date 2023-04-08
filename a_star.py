@@ -178,19 +178,11 @@ def run_a_star(start, end):
         for d in list(Direction):
             if currentNode.g == 0 and d != Direction.LEFT:
                 continue
-            newCoords = propagateCoords(d, currentNode.coords)
-            g = currentNode.g + 1
-            h = calc_h(newCoords, end)
-            node = nodeClass(newCoords, currentNode, g, h, g + h)
-            if node in closedList:
-                continue
-            cont = False
-            for olNode in openList:
-                if olNode == node and node.g > olNode.g:
-                    cont = True
-                    break
-            if cont: continue
-            heapq.heappush(openList, node)
+            g = currentNode.g + 0.2
+            if currentNode.g < g:
+                newCoords = propagateCoords(d, currentNode.coords)
+                h = calc_h(newCoords, end)
+                heapq.heappush(openList, nodeClass(newCoords, currentNode, g, h, g + h))
         i += 1
 
 
