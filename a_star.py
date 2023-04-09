@@ -1,12 +1,14 @@
 
 
+import enum
 from functools import total_ordering
 import heapq
 import math
 import matplotlib.pyplot
 import numpy
 import numpy.linalg
-import enum
+import sys
+import time
 
 
 class coordClass:
@@ -90,17 +92,19 @@ def dist(coords1, coords2):
     return numpy.linalg.norm(coords2.vec - coords1.vec)
 
 
-def angleDiff(coords1, coords2):
-    angleDiff = coords2.angle - coords1.angle + numpy.pi
-    if angleDiff > numpy.pi: angleDiff = 2 * numpy.pi - angleDiff
+def angleDiff(angle1, angle2):
+    angleDiff = angle2 - angle1
+    while angleDiff > numpy.pi: angleDiff = 2 * numpy.pi - angleDiff
+    while angleDiff < -numpy.pi: angleDiff = 2 * numpy.pi + angleDiff
     return angleDiff
 
 
 def calc_h(currentCoords, goalCoords):
     diff = goalCoords.vec - currentCoords.vec
-    retval = numpy.inner(diff, diff) / 7.
-    angDiff = angleDiff(currentCoords, goalCoords)
-    retval += numpy.power(angDiff / (numpy.pi / 8.), 2) / numpy.power((0.3 * retval), 4)
+    retval = numpy.inner(diff, diff) / 10.
+    angDiff = angleDiff(currentCoords.angle, goalCoords.angle + numpy.pi)
+    retval += numpy.power(angDiff / (numpy.pi / 8.), 2) / (retval*1.5)
+    # retval += numpy.power(angDiff / (numpy.pi / 8.), 2) / numpy.power((0.85 + retval), 7)
     return retval
 
 
@@ -148,20 +152,21 @@ def buildPath(node, path = []):
     return buildPath(node.parentNode, path + [ node ])
 
 
-def updatePlot(path):
+def updatePlot(path, color=None):
     if not path:
         return
-    ax.plot([p.coords.x for p in path], [p.coords.y for p in path])
-    ax.set_xlim([0, 30])
-    ax.set_ylim([-7, 7])
+    if color is not None:
+        ax.plot([p.coords.x for p in path], [p.coords.y for p in path], color=color)
+    else:
+        ax.plot([p.coords.x for p in path], [p.coords.y for p in path])
+    ax.set_xlim([0, 15])
+    ax.set_ylim([-10, 10])
     fig.canvas.draw()
     fig.canvas.flush_events()
 
 
 def addNodePathPlot(node1, node2):
     ax.plot([node1.coords.x, node2.coords.x], [node1.coords.y, node2.coords.y])
-    ax.set_xlim([0, 10])
-    ax.set_ylim([-7, 7])
     fig.canvas.draw()
     fig.canvas.flush_events()
 
@@ -174,25 +179,39 @@ def run_a_star(start, end):
     closedList1 = set()
     closedList2 = set()
     i = 0
-    weight = 1
+    weight = 1.
+    tick = time.time()
+    minDist = sys.float_info.max
+    everyTick = False
     while openList1 and openList2:
         currentNode1 = heapq.heappop(openList1)
         currentNode2 = heapq.heappop(openList2)
-        if i % 1 == 0:
+        if everyTick:
             updatePlot(buildPath(currentNode1))
             updatePlot(buildPath(currentNode2))
-        if i % 40 == 0:
-            ax.clear()
+            if i % 40 == 0:
+                ax.clear()
+        if i % 5000 == 0:
+            end = time.time()
+            print(f"ET: {end - tick} (minDist so far: {minDist})")
+            # updatePlot(buildPath(currentNode1), color='#CFCFCF')
+            # updatePlot(buildPath(currentNode2), color='#CFCFCF')
+            tick = end
         closedList1.add(currentNode1)
         closedList2.add(currentNode2)
-        if dist(currentNode1.coords, currentNode2.coords) < 0.1 and (angleDiff(currentNode1.coords, currentNode2.coords) - numpy.pi) < 0.01:
+        if dist(currentNode1.coords, currentNode2.coords) < 0.01 and abs(angleDiff(currentNode1.coords.angle, currentNode2.coords.angle + numpy.pi)) < 0.01:
             print("found it")
+            curDist = dist(currentNode1.coords, currentNode2.coords)
+            print(f"dist: {curDist}")
+            if curDist < minDist: minDist = curDist
             print(str(currentNode1))
             for n in buildPath(currentNode1):
                 print("\t" + str(n))
             print("---")
             for n in reversed(buildPath(currentNode2)):
                 print("\t" + str(n))
+            updatePlot(buildPath(currentNode1))
+            updatePlot(buildPath(currentNode2))
         for d in list(Direction):
             # if currentNode1.g == 0 and d != Direction.LEFT:
             #     continue
@@ -202,6 +221,8 @@ def run_a_star(start, end):
                 if not forbidden(newCoords):
                     h = calc_h(newCoords, currentNode2.coords)
                     heapq.heappush(openList1, nodeClass(newCoords, currentNode1, g, h, g + h))
+            # if i < 4 and d != Direction.STRAIGHT:
+            #     continue
             g = currentNode2.g + weight
             if currentNode2.g < g:
                 newCoords = propagateCoords(d, currentNode2.coords)
