@@ -113,7 +113,6 @@ def calc_h(currentCoords, goalCoords):
     retval = numpy.inner(diff, diff) / 10.
     angDiff = angleDiff(currentCoords.angle, goalCoords.angle + numpy.pi)
     retval += numpy.power(angDiff / (numpy.pi / 8.), 2) / (retval*1.5)
-    # retval += numpy.power(angDiff / (numpy.pi / 8.), 2) / numpy.power((0.85 + retval), 7)
     return retval
 
 
@@ -225,8 +224,6 @@ def run_a_star(start, end, iLim):
         if i % 5000 == 0:
             endTime = time.time()
             print(f"ET at tick {i}: {endTime - tick} (minDist so far: {minDist})")
-            # updatePlot(buildPath(currentNode1), color='#CFCFCF')
-            # updatePlot(buildPath(currentNode2), color='#CFCFCF')
             tick = endTime
         closedList1.add(currentNode1)
         closedList2.add(currentNode2)
@@ -250,16 +247,12 @@ def run_a_star(start, end, iLim):
                 outFile.write(f"{i},{repr(start)},{repr(end)},{curDist},{len(path)-2},{path[1:-1]}\n")
 
         for d in list(Direction):
-            # if currentNode1.g == 0 and d != Direction.LEFT:
-            #     continue
             g = currentNode1.g + weight
             if currentNode1.g < g:
                 newCoords = propagateCoords(d, currentNode1.coords)
                 if not forbidden(newCoords):
                     h = calc_h(newCoords, currentNode2.coords)
                     heapq.heappush(openList1, nodeClass(newCoords, currentNode1, g, h, g + h, d))
-            # if i < 4 and d != Direction.STRAIGHT:
-            #     continue
             g = currentNode2.g + weight
             if currentNode2.g < g:
                 newCoords = propagateCoords(d, currentNode2.coords)
