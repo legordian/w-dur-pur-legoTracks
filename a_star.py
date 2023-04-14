@@ -1,5 +1,6 @@
 
 
+import datetime
 import enum
 from functools import total_ordering
 import heapq
@@ -47,16 +48,23 @@ class coordClass:
     def __hash__(self):
         return hash((self.vec[0], self.vec[1], self.angle))
 
+    def __str__(self):
+        return "(" + str(self.x) + ", " + str(self.y) + ", " + str(math.degrees(self.angle)) + ")"
+
+    def __repr__(self):
+        return str(self.x) + "," + str(self.y) + "," + str(math.degrees(self.angle))
+
 
 @total_ordering
 class nodeClass:
 
-    def __init__(self, coords, parentNode, g, h, f):
+    def __init__(self, coords, parentNode, g, h, f, direction):
         self.coords = coords
         self.parentNode = parentNode
         self.g = g
         self.h = h
         self.f = f
+        self.direction = direction
 
     def __str__(self):
         return "(" + str(self.coords.x) + ", " + str(self.coords.y) + ", " + str(math.degrees(self.coords.angle)) + ") | g=" + str(self.g) + ", h=" + str(self.h)
@@ -81,6 +89,7 @@ Direction = enum.Enum('Direction', ['LEFT', 'STRAIGHT', 'RIGHT'])
 
 leftCurveVec = coordClass.fromXYCoords(2.5 * numpy.sin(numpy.pi / 8.), 2.5 * (1 - numpy.cos(numpy.pi / 8.)), None)
 rightCurveVec = coordClass.fromXYCoords(leftCurveVec.x, -leftCurveVec.y, None)
+outputFileName = "outputFile.csv"
 
 matplotlib.pyplot.ion()
 fig = matplotlib.pyplot.figure()
@@ -171,9 +180,31 @@ def addNodePathPlot(node1, node2):
     fig.canvas.flush_events()
 
 
-def run_a_star(start, end):
-    startNode = nodeClass(start, None, 0, calc_h(start, end), calc_h(start, end))
-    endNode = nodeClass(end, None, 0, calc_h(end, start), calc_h(end, start))
+def dirToString(direction):
+    if direction == Direction.LEFT:
+        return "L"
+    elif direction == Direction.STRAIGHT:
+        return "G"
+    elif direction == Direction.RIGHT:
+        return "R"
+    else:
+        raise Exception("upsi")
+
+
+def reverseDir(direction):
+    if direction == Direction.LEFT:
+        return Direction.RIGHT
+    elif direction == Direction.STRAIGHT:
+        return Direction.STRAIGHT
+    elif direction == Direction.RIGHT:
+        return Direction.LEFT
+    else:
+        raise Exception("upsi")
+
+
+def run_a_star(start, end, iLim):
+    startNode = nodeClass(start, None, 0, calc_h(start, end), calc_h(start, end), Direction.STRAIGHT)
+    endNode = nodeClass(end, None, 0, calc_h(end, start), calc_h(end, start), Direction.STRAIGHT)
     openList1 = [ startNode ]
     openList2 = [ endNode ]
     closedList1 = set()
@@ -183,7 +214,7 @@ def run_a_star(start, end):
     tick = time.time()
     minDist = sys.float_info.max
     everyTick = False
-    while openList1 and openList2:
+    while openList1 and openList2 and (iLim < 0 or i <= iLim):
         currentNode1 = heapq.heappop(openList1)
         currentNode2 = heapq.heappop(openList2)
         if everyTick:
@@ -192,11 +223,11 @@ def run_a_star(start, end):
             if i % 40 == 0:
                 ax.clear()
         if i % 5000 == 0:
-            end = time.time()
-            print(f"ET: {end - tick} (minDist so far: {minDist})")
+            endTime = time.time()
+            print(f"ET at tick {i}: {endTime - tick} (minDist so far: {minDist})")
             # updatePlot(buildPath(currentNode1), color='#CFCFCF')
             # updatePlot(buildPath(currentNode2), color='#CFCFCF')
-            tick = end
+            tick = endTime
         closedList1.add(currentNode1)
         closedList2.add(currentNode2)
         if dist(currentNode1.coords, currentNode2.coords) < 0.01 and abs(angleDiff(currentNode1.coords.angle, currentNode2.coords.angle + numpy.pi)) < 0.01:
@@ -205,13 +236,19 @@ def run_a_star(start, end):
             print(f"dist: {curDist}")
             if curDist < minDist: minDist = curDist
             print(str(currentNode1))
+            path = ""
             for n in buildPath(currentNode1):
                 print("\t" + str(n))
+                path += dirToString(n.direction)
             print("---")
             for n in reversed(buildPath(currentNode2)):
                 print("\t" + str(n))
+                path += dirToString(reverseDir(n.direction))
             updatePlot(buildPath(currentNode1))
             updatePlot(buildPath(currentNode2))
+            with open(outputFileName, 'a') as outFile:
+                outFile.write(f"{i},{repr(start)},{repr(end)},{curDist},{len(path)-2},{path[1:-1]}\n")
+
         for d in list(Direction):
             # if currentNode1.g == 0 and d != Direction.LEFT:
             #     continue
@@ -220,7 +257,7 @@ def run_a_star(start, end):
                 newCoords = propagateCoords(d, currentNode1.coords)
                 if not forbidden(newCoords):
                     h = calc_h(newCoords, currentNode2.coords)
-                    heapq.heappush(openList1, nodeClass(newCoords, currentNode1, g, h, g + h))
+                    heapq.heappush(openList1, nodeClass(newCoords, currentNode1, g, h, g + h, d))
             # if i < 4 and d != Direction.STRAIGHT:
             #     continue
             g = currentNode2.g + weight
@@ -228,14 +265,46 @@ def run_a_star(start, end):
                 newCoords = propagateCoords(d, currentNode2.coords)
                 if not forbidden(newCoords):
                     h = calc_h(currentNode1.coords, newCoords)
-                    heapq.heappush(openList2, nodeClass(newCoords, currentNode2, g, h, g + h))
+                    heapq.heappush(openList2, nodeClass(newCoords, currentNode2, g, h, g + h, d))
         i += 1
 
 
+def retraceSteps(startCoords, steps):
+    if type(steps) == str:
+        newSteps = []
+        for char in steps:
+            if char == "L":
+                newSteps.append(Direction.LEFT)
+            elif char == "G" or char == "S":
+                newSteps.append(Direction.STRAIGHT)
+            elif char == "R":
+                newSteps.append(Direction.RIGHT)
+            else:
+                raise Exception("upsi")
+        steps = newSteps
+    currentCoords = startCoords
+    coords = [currentCoords]
+    for step in steps:
+        currentCoords = propagateCoords(step, currentCoords)
+        coords.append(currentCoords)
+    return coords
+
+
+def validateSolution(startCoords, targetCoords, steps):
+    coords = retraceSteps(startCoords, steps)
+    d = dist(coords[-1], targetCoords)
+    print(f"start: {startCoords}, end: {coords[-1]}, target: {targetCoords}, dist: {d}")
+
+
 def main():
+    with open(outputFileName, 'a') as outFile:
+        outFile.write("run start at " + datetime.datetime.now().strftime("%d.%m.%Y %H:%M:%S") + "\n")
+        outFile.write(f"iteration,start_x,start_y,start_angle,end_x,end_y,end_angle,dist,length,path\n")
     start = coordClass.fromXYCoords(0., 0.5, numpy.double(0.))
     end = coordClass.fromXYCoords(0., 0., numpy.double(0.))
-    run_a_star(start, end)
+    run_a_star(start, end, 4000000)
+    with open(outputFileName, 'a') as outFile:
+        outFile.write("run end at " + datetime.datetime.now().strftime("%d.%m.%Y %H:%M:%S") + "\n")
     input()
 
 if __name__ == "__main__":
